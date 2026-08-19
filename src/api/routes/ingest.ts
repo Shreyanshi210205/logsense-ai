@@ -20,6 +20,8 @@ const ingestBodySchema = {
           url: { type: "string" },
           latency_ms: { type: "number" },
           user_agent: { type: "string" },
+          service: { type: "string" },
+          level: { type: "string" },
           metadata: { type: "object" },
         },
       },
@@ -40,6 +42,8 @@ export async function ingestRoutes(app: FastifyInstance): Promise<void> {
         url: e.url,
         latency_ms: e.latency_ms,
         user_agent: e.user_agent || request.headers["user-agent"] || "",
+        service: e.service || getMetadataString(e.metadata, "service") || "unknown",
+        level: e.level || getMetadataString(e.metadata, "level") || "info",
         metadata: e.metadata ?? {},
       }));
 
@@ -58,4 +62,9 @@ export async function ingestRoutes(app: FastifyInstance): Promise<void> {
       });
     },
   );
+}
+
+function getMetadataString(metadata: Record<string, unknown> | undefined, key: string): string | undefined {
+  const value = metadata?.[key];
+  return typeof value === "string" && value.length > 0 ? value : undefined;
 }

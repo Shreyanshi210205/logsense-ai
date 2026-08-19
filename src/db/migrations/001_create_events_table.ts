@@ -11,6 +11,8 @@ CREATE TABLE IF NOT EXISTS ${DATABASE}.events (
     url          String,
     latency_ms   Float32,
     user_agent   String,
+    service      LowCardinality(String),
+    level        LowCardinality(String),
     metadata     JSON
 )
 ENGINE = MergeTree

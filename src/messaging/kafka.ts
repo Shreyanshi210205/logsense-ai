@@ -1,4 +1,4 @@
-import { Kafka, logLevel, type Producer } from "kafkajs";
+import { Kafka, logLevel, type Consumer, type Producer } from "kafkajs";
 import type { LogEvent } from "../types/log.js";
 
 const brokers = (process.env.KAFKA_BROKERS ?? "localhost:9094")
@@ -15,6 +15,15 @@ const kafka = new Kafka({
 
 let producer: Producer | null = null;
 let producerReady = false;
+
+/** Dedicated consumer group for independently scalable ClickHouse writers. */
+export const clickHouseWriterConsumer: Consumer = kafka.consumer({
+  groupId: "clickhouse-writers-group",
+  sessionTimeout: 30_000,
+  heartbeatInterval: 3_000,
+});
+
+export const rawEventsTopic = topic;
 
 function getProducer(): Producer {
   if (!producer) {
@@ -58,7 +67,7 @@ function getPartitionKey(event: LogEvent): string {
   const tenantId = event.metadata.tenant_id;
   if (typeof tenantId === "string" && tenantId) return tenantId;
 
-  const service = event.metadata.service;
+  const service = event.service || event.metadata.service;
   if (typeof service === "string" && service) return service;
 
   return event.url;
