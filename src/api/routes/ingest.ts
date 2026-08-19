@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { v4 as uuidv4 } from "uuid";
+import { publishEvents } from "../../messaging/kafka.js";
 import type { IngestPayload } from "../../types/log.js";
-import type { BatchIngester } from "../../services/BatchIngester.js";
 
 const ingestBodySchema = {
   type: "object",
@@ -27,10 +27,7 @@ const ingestBodySchema = {
   },
 } as const;
 
-export async function ingestRoutes(
-  app: FastifyInstance,
-  opts: { ingester: BatchIngester },
-): Promise<void> {
+export async function ingestRoutes(app: FastifyInstance): Promise<void> {
   app.post<{ Body: IngestPayload }>(
     "/ingest",
     { schema: { body: ingestBodySchema } },
@@ -46,11 +43,11 @@ export async function ingestRoutes(
         metadata: e.metadata ?? {},
       }));
 
-      opts.ingester.enqueue(events);
+      await publishEvents(events);
 
       return reply.code(202).send({
         accepted: events.length,
-        buffered: opts.ingester.pendingCount,
+        queued: events.length,
       });
     },
   );
