@@ -1,9 +1,8 @@
 import type { FastifyInstance } from "fastify";
-import { getClickHouseClient } from "../../db/client.js";
+import { getReaderClickHouseClient } from "../../db/client.js";
 import { AnalyticAgent } from "../../services/AnalyticAgent.js";
+import { SqlQueryValidator } from "../../services/SqlQueryValidator.js";
 import type { QueryPayload, QueryResponse } from "../../types/log.js";
-
-const FORBIDDEN_PATTERN = /\b(DROP|ALTER|TRUNCATE|DELETE|INSERT|UPDATE|CREATE)\b/i;
 
 const queryBodySchema = {
   type: "object",
@@ -15,6 +14,7 @@ const queryBodySchema = {
 
 export async function queryRoutes(app: FastifyInstance): Promise<void> {
   const agent = new AnalyticAgent();
+  const validator = new SqlQueryValidator();
 
   app.post<{ Body: QueryPayload }>(
     "/query",
@@ -22,16 +22,16 @@ export async function queryRoutes(app: FastifyInstance): Promise<void> {
     async (request, reply) => {
       const { question } = request.body;
 
-      const sql = await agent.textToSQL(question);
-
-      if (FORBIDDEN_PATTERN.test(sql)) {
+      let sql: string;
+      try {
+        sql = validator.validateAndNormalize(await agent.textToSQL(question));
+      } catch (error) {
         return reply.code(400).send({
-          error: "Generated query contains a forbidden operation",
-          sql,
+          error: error instanceof Error ? error.message : "Generated query is invalid",
         });
       }
 
-      const client = getClickHouseClient();
+      const client = getReaderClickHouseClient();
       const resultSet = await client.query({
         query: sql,
         format: "JSONEachRow",

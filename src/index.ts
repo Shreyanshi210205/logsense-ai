@@ -2,7 +2,7 @@ import "dotenv/config";
 import Fastify from "fastify";
 import { registerRoutes } from "./api/index.js";
 import { BatchIngester } from "./services/BatchIngester.js";
-import { closeClickHouseClient } from "./db/client.js";
+import { closeClickHouseClients } from "./db/client.js";
 
 async function main(): Promise<void> {
   const isProd = process.env.NODE_ENV === "production";
@@ -28,7 +28,7 @@ async function main(): Promise<void> {
   const shutdown = async (): Promise<void> => {
     app.log.info("shutting down...");
     await ingester.stop();
-    await closeClickHouseClient();
+    await closeClickHouseClients();
     await app.close();
     process.exit(0);
   };

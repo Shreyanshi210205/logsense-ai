@@ -1,4 +1,4 @@
-import { getClickHouseClient } from "../db/client.js";
+import { getWriterClickHouseClient } from "../db/client.js";
 import type { LogEvent } from "../types/log.js";
 
 export class BatchIngester {
@@ -49,7 +49,7 @@ export class BatchIngester {
     const batch = this.buffer.splice(0, this.batchSize);
 
     try {
-      const client = getClickHouseClient();
+      const client = getWriterClickHouseClient();
       await client.insert({
         table: "sentient_log.events",
         values: batch.map((e) => ({

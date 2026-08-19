@@ -2,18 +2,21 @@
   "name": "sentient-log",
   "version": "0.1.0",
   "description": "AI-driven observability platform with ClickHouse and Text-to-SQL",
+  "type": "module",
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "migrate": "tsx src/db/migrations/001_create_events_table.ts"
+    "migrate": "tsx src/db/migrations/001_create_events_table.ts && tsx src/db/migrations/002_create_ai_analytics_user.ts"
   },
   "dependencies": {
     "@clickhouse/client": "^1.8.1",
     "@google/genai": "^2.12.0",
     "dotenv": "^16.4.7",
     "fastify": "^5.2.1",
+    "kafkajs": "^2.2.4",
+    "node-sql-parser": "^5.4.0",
     "openai": "^4.85.4",
     "uuid": "^11.1.0"
   },
