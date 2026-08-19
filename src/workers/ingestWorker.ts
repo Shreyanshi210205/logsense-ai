@@ -99,8 +99,8 @@ function normalizeEvent(value: unknown): LogEvent {
 
 function toClickHouseTimestamp(value: unknown): string {
   const date = typeof value === "string" ? new Date(value) : new Date();
-  if (Number.isNaN(date.getTime())) return new Date().toISOString();
-  return date.toISOString();
+  const isoTimestamp = Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
+  return isoTimestamp.replace("T", " ").replace("Z", "");
 }
 
 function requiredString(value: unknown, field: string): string {
