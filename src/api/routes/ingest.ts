@@ -43,7 +43,14 @@ export async function ingestRoutes(app: FastifyInstance): Promise<void> {
         metadata: e.metadata ?? {},
       }));
 
-      await publishEvents(events);
+      try {
+        // Kafka acknowledgement makes the 202 response a durable hand-off,
+        // rather than an in-memory promise that disappears on restart.
+        await publishEvents(events);
+      } catch (error) {
+        request.log.error(error, "Kafka event publication failed");
+        return reply.code(503).send({ error: "Event pipeline is unavailable" });
+      }
 
       return reply.code(202).send({
         accepted: events.length,

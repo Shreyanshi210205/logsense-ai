@@ -1,8 +1,8 @@
 import "dotenv/config";
 import Fastify from "fastify";
 import { registerRoutes } from "./api/index.js";
-import { BatchIngester } from "./services/BatchIngester.js";
 import { closeClickHouseClients } from "./db/client.js";
+import { connectKafkaProducer, disconnectKafkaProducer } from "./messaging/kafka.js";
 
 async function main(): Promise<void> {
   const isProd = process.env.NODE_ENV === "production";
@@ -20,14 +20,13 @@ async function main(): Promise<void> {
     trustProxy: true,
   });
 
-  const ingester = new BatchIngester();
-  ingester.start();
-
-  await registerRoutes(app, ingester);
+  // Do not accept HTTP traffic until the shared producer can reach Kafka.
+  await connectKafkaProducer();
+  await registerRoutes(app);
 
   const shutdown = async (): Promise<void> => {
     app.log.info("shutting down...");
-    await ingester.stop();
+    await disconnectKafkaProducer();
     await closeClickHouseClients();
     await app.close();
     process.exit(0);
