@@ -1,8 +1,10 @@
 import "dotenv/config";
 import type { EachBatchPayload } from "kafkajs";
 import { v4 as uuidv4, validate as isUuid } from "uuid";
+import { config } from "../config.js";
 import { closeClickHouseClients, getWriterClickHouseClient } from "../db/client.js";
 import { clickHouseWriterConsumer, rawEventsTopic } from "../messaging/kafka.js";
+import { isTransientError, withRetry } from "../services/retry.js";
 import type { LogEvent } from "../types/log.js";
 
 const INSERT_CHUNK_SIZE = Math.max(1, Number(process.env.CLICKHOUSE_INSERT_CHUNK_SIZE ?? 1_000));
@@ -41,13 +43,16 @@ async function processBatch({ batch, resolveOffset, heartbeat, isRunning, isStal
   for (const chunk of chunkRecords(records, INSERT_CHUNK_SIZE)) {
     if (!isRunning() || isStale()) return;
 
-    await writer.insert({
-      table: "events",
-      values: chunk,
-      format: "JSONEachRow",
-      // Kafka offsets are committed only after ClickHouse confirms the batch.
-      clickhouse_settings: { async_insert: 1, wait_for_async_insert: 1 },
-    });
+    await withRetry(
+      () => writer.insert({
+        table: "events",
+        values: chunk,
+        format: "JSONEachRow",
+        // Kafka offsets are committed only after ClickHouse confirms the batch.
+        clickhouse_settings: { async_insert: 1, wait_for_async_insert: 1 },
+      }),
+      { ...config.clickhouse, shouldRetry: isTransientError },
+    );
     inserted += chunk.length;
     await heartbeat();
   }

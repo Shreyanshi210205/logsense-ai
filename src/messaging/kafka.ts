@@ -1,4 +1,6 @@
 import { Kafka, logLevel, type Consumer, type Producer } from "kafkajs";
+import { config } from "../config.js";
+import { isTransientError, withRetry } from "../services/retry.js";
 import type { LogEvent } from "../types/log.js";
 
 const brokers = (process.env.KAFKA_BROKERS ?? "localhost:9094")
@@ -43,15 +45,18 @@ export async function connectKafkaProducer(): Promise<void> {
 export async function publishEvents(events: LogEvent[]): Promise<void> {
   if (!producerReady) throw new Error("Kafka producer is not connected");
 
-  await getProducer().send({
-    topic,
-    acks: -1,
-    messages: events.map((event) => ({
-      // Keeps a tenant/service's ordered stream in a consistent partition.
-      key: getPartitionKey(event),
-      value: JSON.stringify(event),
-    })),
-  });
+  await withRetry(
+    () => getProducer().send({
+      topic,
+      acks: -1,
+      messages: events.map((event) => ({
+        // Keeps a tenant/service's ordered stream in a consistent partition.
+        key: getPartitionKey(event),
+        value: JSON.stringify(event),
+      })),
+    }),
+    { ...config.kafka, shouldRetry: isTransientError },
+  );
 }
 
 export function isKafkaReady(): boolean {

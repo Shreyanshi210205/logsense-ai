@@ -1,4 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
+import { config } from "../config.js";
+import { isTransientError, withRetry } from "./retry.js";
 
 const CLICKHOUSE_SCHEMA = `
 Table: sentient_log.events
@@ -42,16 +44,46 @@ export class AnalyticAgent {
   }
 
   async textToSQL(question: string): Promise<string> {
-    const response = await this.ai.models.generateContent({
-      model: this.model,
-      contents: `${SYSTEM_PROMPT}
-
-User Question:
-${question}`,
-    });
+    const response = await withRetry(
+      () => this.generateContent(question),
+      { ...config.gemini, shouldRetry: isTransientError },
+    );
 
     const sql = response.text?.trim();
     if (!sql) throw new Error("AnalyticAgent returned an empty response");
     return sql;
   }
+
+  private async generateContent(question: string) {
+    return withTimeout(
+      this.ai.models.generateContent({
+        model: this.model,
+        contents: `${SYSTEM_PROMPT}
+User Question:
+${question}`,
+      }),
+      config.gemini.timeoutMs,
+    );
+  }
+}
+
+function withTimeout<T>(operation: Promise<T>, timeoutMs: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      const error = new Error(`Gemini request timed out after ${timeoutMs}ms`);
+      error.name = "TimeoutError";
+      reject(error);
+    }, timeoutMs);
+
+    operation.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error: unknown) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
 }

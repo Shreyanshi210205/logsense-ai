@@ -64,6 +64,8 @@ export class SqlQueryValidator {
     };
   }
 
+
+  //only select statements and its CTEs
   private validateSelect(ast: SqlAst): void {
     if (ast.type !== "select") {
       throw new Error("Only SELECT statements and SELECT CTEs are allowed");
@@ -85,6 +87,8 @@ export class SqlQueryValidator {
     this.validateNestedSelects(ast, new Set(["with", "from"]));
   }
 
+
+  // only sentient log database and event table to be accessed
   private validateFrom(from: unknown, cteNames: Set<string>): void {
     if (!Array.isArray(from)) return;
     for (const source of from) {
