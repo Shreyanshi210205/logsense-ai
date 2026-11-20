@@ -8,6 +8,7 @@ const brokers = (process.env.KAFKA_BROKERS ?? "localhost:9094")
   .map((broker) => broker.trim())
   .filter(Boolean);
 const topic = process.env.KAFKA_RAW_EVENTS_TOPIC ?? "raw-events";
+const consumerGroup = process.env.KAFKA_CONSUMER_GROUP ?? "clickhouse-writers-group";
 
 const kafka = new Kafka({
   clientId: process.env.KAFKA_CLIENT_ID ?? "sentient-log-api",
@@ -20,7 +21,7 @@ let producerReady = false;
 
 /** Dedicated consumer group for independently scalable ClickHouse writers. */
 export const clickHouseWriterConsumer: Consumer = kafka.consumer({
-  groupId: "clickhouse-writers-group",
+  groupId: consumerGroup,
   sessionTimeout: 30_000,
   heartbeatInterval: 3_000,
 });
