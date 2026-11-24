@@ -2,6 +2,39 @@
 
 AI-driven observability platform. Ingests high-frequency website interaction logs into ClickHouse and answers performance questions via Text-to-SQL.
 
+## Architecture
+
+<!-- mermaid-checked: no \n, no em-dash/en-dash, no {} in labels, subgraphs are id["label"], arrows are -->|"label"|, all subgraphs closed by end, ids unique -->
+```mermaid
+flowchart TD
+    subgraph Clients["Clients"]
+        Websites["Web and API Clients"]
+    end
+    subgraph Runtime["Node.js Application"]
+        API["Fastify API"]
+        Worker["Ingestion Workers"]
+    end
+    subgraph Messaging["Event Streaming"]
+        Kafka[("Kafka raw-events")]
+    end
+    subgraph Storage["Data Stores"]
+        ClickHouse[("ClickHouse events")]
+    end
+    subgraph AI["AI Service"]
+        Gemini["Gemini Text-to-SQL"]
+    end
+
+    Websites -->|"HTTP ingest and query"| API
+    API -->|"publish events"| Kafka
+    Kafka -->|"consumer batches"| Worker
+    Worker -->|"insert JSON events"| ClickHouse
+    API -->|"natural-language question"| Gemini
+    Gemini -->|"generated SQL"| API
+    API -->|"validated read query"| ClickHouse
+    ClickHouse -->|"query results"| API
+    API -->|"HTTP response"| Websites
+```
+
 ## Quick Start
 
 ### 1. Start the stack
